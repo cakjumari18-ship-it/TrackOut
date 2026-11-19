@@ -1,0 +1,649 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  LayoutDashboard,
+  Wallet,
+  ShoppingBag,
+  FileSpreadsheet,
+  PieChart as PieChartIcon,
+  Target,
+  Lightbulb,
+  Settings,
+  Plus,
+  Edit3,
+  Trash2,
+  ArrowUpRight,
+  ArrowDownRight,
+  Sparkles,
+  Calendar,
+  AlertTriangle,
+  CheckCircle2,
+  Trophy,
+  Sun,
+  Moon,
+  RotateCcw,
+  Info,
+  Search,
+  Filter,
+  Coins,
+  TrendingUp,
+  ChevronRight,
+  X,
+  Check,
+  Award,
+  Flame,
+  PiggyBank
+} from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  Legend
+} from 'recharts';
+
+// ============================================================================
+// TIPE DATA & KONSTANTA
+// ============================================================================
+
+type MenuId =
+  | 'dashboard'
+  | 'income'
+  | 'expense'
+  | 'recap'
+  | 'charts'
+  | 'savings'
+  | 'tips'
+  | 'settings';
+
+interface IncomeItem {
+  id: string;
+  amount: number;
+  source: string;
+  date: string; // YYYY-MM-DD
+  note: string;
+}
+
+interface ExpenseItem {
+  id: string;
+  name: string;
+  amount: number;
+  category: string;
+  date: string; // YYYY-MM-DD
+  note: string;
+}
+
+interface SavingTarget {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline: string; // YYYY-MM-DD
+  celebrated?: boolean;
+}
+
+interface UserProfile {
+  name: string;
+  darkMode: boolean;
+}
+
+interface ChallengeState {
+  save7Days: boolean[];
+  noSnack7Days: boolean[];
+  save5k7Days: boolean[];
+}
+
+const INCOME_SOURCES = [
+  'Uang saku harian',
+  'Uang saku mingguan',
+  'Uang saku bulanan',
+  'Pemberian orang tua',
+  'Hadiah',
+  'Hasil usaha kecil',
+  'Lainnya'
+];
+
+const EXPENSE_CATEGORIES = [
+  { id: 'Makanan dan Minuman', label: '🍜 Makanan dan Minuman', emoji: '🍜', color: '#F97316' },
+  { id: 'Transportasi', label: '🚌 Transportasi', emoji: '🚌', color: '#0EA5E9' },
+  { id: 'Kebutuhan Sekolah', label: '📚 Kebutuhan Sekolah', emoji: '📚', color: '#3B82F6' },
+  { id: 'Alat Tulis', label: '🖊️ Alat Tulis', emoji: '🖊️', color: '#8B5CF6' },
+  { id: 'Belanja', label: '🛍️ Belanja', emoji: '🛍️', color: '#EC4899' },
+  { id: 'Hiburan', label: '🎮 Hiburan', emoji: '🎮', color: '#10B981' },
+  { id: 'Pulsa dan Internet', label: '📱 Pulsa dan Internet', emoji: '📱', color: '#06B6D4' },
+  { id: 'Kebutuhan Pribadi', label: '🧴 Kebutuhan Pribadi', emoji: '🧴', color: '#F59E0B' },
+  { id: 'Lainnya', label: '📦 Lainnya', emoji: '📦', color: '#64748B' }
+];
+
+const MOTIVATIONAL_QUOTES = [
+  'Sedikit demi sedikit, lama-lama menjadi bukit!',
+  'Jangan habiskan uang sakumu hanya untuk jajan.',
+  'Belajar hemat hari ini, nikmati hasilnya nanti.',
+  'Menabung bukan soal banyaknya uang, tetapi kebiasaan.',
+  'Pelajar cerdas tahu bedanya kebutuhan dan keinginan.',
+  'Sisihkan uang saku di awal, bukan menunggu sisa di akhir!'
+];
+
+const SAVING_PRESETS = [
+  'Membeli sepatu sekolah',
+  'Membeli tas sekolah',
+  'Membeli headset',
+  'Membeli perlengkapan sekolah',
+  'Membeli hadiah untuk orang tua',
+  'Tabungan liburan'
+];
+
+const HEMAT_TIPS = [
+  {
+    title: 'Bawa Bekal & Botol Minum dari Rumah',
+    desc: 'Membawa bekal dan air minum sendiri bisa menghemat hingga 50% uang jajan harianmu di kantin sekolah.',
+    tag: 'Hemat Harian',
+    icon: '🍱'
+  },
+  {
+    title: 'Kurangi Membeli Jajanan Impulsif',
+    desc: 'Tahan godaan beli camilan atau minuman manis setiap istirahat. Cukup beli saat benar-benar lapar.',
+    tag: 'Kontrol Diri',
+    icon: '🧋'
+  },
+  {
+    title: 'Sisihkan Uang Saku di Awal (Pay Yourself First)',
+    desc: 'Begitu menerima uang saku, langsung sisihkan 10% - 20% ke target tabungan sebelum dipakai jajan.',
+    tag: 'Kebiasaan Baik',
+    icon: '💰'
+  },
+  {
+    title: 'Buat Daftar Kebutuhan Sebelum Belanja',
+    desc: 'Catat alat tulis atau perlengkapan sekolah yang benar-benar habis agar tidak kalap membeli barang lucu tapi tidak perlu.',
+    tag: 'Perencanaan',
+    icon: '📝'
+  },
+  {
+    title: 'Bedakan Kebutuhan dan Keinginan',
+    desc: 'Buku tulis untuk belajar adalah kebutuhan; skin game atau gantungan kunci baru adalah keinginan. Dahulukan kebutuhan!',
+    tag: 'Prioritas',
+    icon: '⚖️'
+  },
+  {
+    title: 'Hindari Menghabiskan Uang Saku Sekaligus',
+    desc: 'Bagi jatah pengeluaran harianmu. Jika uang saku mingguan Rp100.000, batasi maksimal Rp15.000 per hari.',
+    tag: 'Disiplin',
+    icon: '🗓️'
+  }
+];
+
+const STORAGE_KEYS = {
+  PROFILE: 'trackout_profile_v2',
+  INCOMES: 'trackout_incomes_v1',
+  EXPENSES: 'trackout_expenses_v1',
+  SAVINGS: 'trackout_savings_v1',
+  CHALLENGES: 'trackout_challenges_v1'
+};
+
+// ============================================================================
+// FUNGSI HELPER TANGGAL & FORMAT RUPIAH
+// ============================================================================
+
+const getLocalDateString = (offsetDays = 0): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getFirstDayOfMonthString = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+};
+
+const formatRupiah = (amount: number): string => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
+};
+
+const formatTanggalIndo = (dateStr: string): string => {
+  if (!dateStr) return '-';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  return dateObj.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
+const formatHariTanggalLengkap = (): string => {
+  return new Date().toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+};
+
+// ============================================================================
+// DATA SIMULASI AWAL
+// ============================================================================
+
+const getDefaultData = () => {
+  const today = getLocalDateString(0);
+  const yesterday = getLocalDateString(-1);
+  const twoDaysAgo = getLocalDateString(-2);
+  const firstOfMonth = getFirstDayOfMonthString();
+  const nextMonth = getLocalDateString(30);
+
+  const defaultProfile: UserProfile = {
+    name: 'Raka Pratama',
+    darkMode: false
+  };
+
+  const defaultIncomes: IncomeItem[] = [
+    {
+      id: 'inc-1',
+      amount: 600000,
+      source: 'Uang saku bulanan',
+      date: firstOfMonth,
+      note: 'Uang saku bulan ini dari Ayah & Ibu'
+    }
+  ];
+
+  const defaultExpenses: ExpenseItem[] = [
+    {
+      id: 'exp-1',
+      name: 'Makan di kantin',
+      amount: 12000,
+      category: 'Makanan dan Minuman',
+      date: today,
+      note: 'Nasi goreng kantin sekolah'
+    },
+    {
+      id: 'exp-2',
+      name: 'Es teh',
+      amount: 5000,
+      category: 'Makanan dan Minuman',
+      date: today,
+      note: 'Minuman segar saat istirahat siang'
+    },
+    {
+      id: 'exp-3',
+      name: 'Transportasi',
+      amount: 10000,
+      category: 'Transportasi',
+      date: today,
+      note: 'Ongkos angkot / ojek pulang pergi sekolah'
+    },
+    {
+      id: 'exp-4',
+      name: 'Buku tulis',
+      amount: 8000,
+      category: 'Kebutuhan Sekolah',
+      date: yesterday,
+      note: 'Buku catatan Matematika'
+    },
+    {
+      id: 'exp-5',
+      name: 'Pulpen',
+      amount: 4000,
+      category: 'Alat Tulis',
+      date: twoDaysAgo,
+      note: 'Pulpen gel tinta hitam'
+    }
+  ];
+
+  const defaultSavings: SavingTarget[] = [
+    {
+      id: 'sav-1',
+      name: 'Membeli sepatu sekolah',
+      targetAmount: 250000,
+      currentAmount: 75000,
+      deadline: nextMonth,
+      celebrated: false
+    }
+  ];
+
+  const defaultChallenges: ChallengeState = {
+    save7Days: [true, true, false, false, false, false, false],
+    noSnack7Days: [true, false, false, false, false, false, false],
+    save5k7Days: [true, true, true, false, false, false, false]
+  };
+
+  return {
+    defaultProfile,
+    defaultIncomes,
+    defaultExpenses,
+    defaultSavings,
+    defaultChallenges
+  };
+};
+
+// ============================================================================
+// KOMPONEN UTAMA APLIKASI
+// ============================================================================
+
+export default function App() {
+  const defaults = useMemo(() => getDefaultData(), []);
+
+  // State Utama dengan Persistensi Local Storage
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PROFILE);
+      return saved ? JSON.parse(saved) : defaults.defaultProfile;
+    } catch {
+      return defaults.defaultProfile;
+    }
+  });
+
+  const [incomes, setIncomes] = useState<IncomeItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.INCOMES);
+      return saved ? JSON.parse(saved) : defaults.defaultIncomes;
+    } catch {
+      return defaults.defaultIncomes;
+    }
+  });
+
+  const [expenses, setExpenses] = useState<ExpenseItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+      return saved ? JSON.parse(saved) : defaults.defaultExpenses;
+    } catch {
+      return defaults.defaultExpenses;
+    }
+  });
+
+  const [savings, setSavings] = useState<SavingTarget[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.SAVINGS);
+      return saved ? JSON.parse(saved) : defaults.defaultSavings;
+    } catch {
+      return defaults.defaultSavings;
+    }
+  });
+
+  const [challenges, setChallenges] = useState<ChallengeState>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.CHALLENGES);
+      return saved ? JSON.parse(saved) : defaults.defaultChallenges;
+    } catch {
+      return defaults.defaultChallenges;
+    }
+  });
+
+  // State UI & Navigasi
+  const [activeMenu, setActiveMenu] = useState<MenuId>('dashboard');
+  const [quoteIndex, setQuoteIndex] = useState<number>(0);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'warning' | 'error' | 'celebration';
+  } | null>(null);
+
+  // Sinkronisasi ke Local Storage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+  }, [profile]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.INCOMES, JSON.stringify(incomes));
+  }, [incomes]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+  }, [expenses]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SAVINGS, JSON.stringify(savings));
+  }, [savings]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CHALLENGES, JSON.stringify(challenges));
+  }, [challenges]);
+
+  // Rotasi kalimat motivasi otomatis setiap 8 detik
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuoteIndex((prev) => (prev + 1) % MOTIVATIONAL_QUOTES.length);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fungsi Notifikasi Toast
+  const showToast = (
+    message: string,
+    type: 'success' | 'warning' | 'error' | 'celebration' = 'success'
+  ) => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast((current) => (current?.message === message ? null : current));
+    }, 4500);
+  };
+
+  // ============================================================================
+  // PERHITUNGAN KEUANGAN REAL-TIME
+  // ============================================================================
+
+  const currentMonthPrefix = useMemo(() => getLocalDateString(0).slice(0, 7), []);
+
+  const financialStats = useMemo(() => {
+    const totalAllIncome = incomes.reduce((sum, item) => sum + item.amount, 0);
+    const totalAllExpense = expenses.reduce((sum, item) => sum + item.amount, 0);
+    const remainingBalance = totalAllIncome - totalAllExpense;
+
+    const monthlyIncome = incomes
+      .filter((i) => i.date.startsWith(currentMonthPrefix))
+      .reduce((sum, item) => sum + item.amount, 0);
+
+    const monthlyExpense = expenses
+      .filter((e) => e.date.startsWith(currentMonthPrefix))
+      .reduce((sum, item) => sum + item.amount, 0);
+
+    const totalSaved = savings.reduce((sum, item) => sum + item.currentAmount, 0);
+
+    return {
+      totalAllIncome,
+      totalAllExpense,
+      remainingBalance,
+      monthlyIncome,
+      monthlyExpense,
+      totalSaved
+    };
+  }, [incomes, expenses, savings, currentMonthPrefix]);
+
+  // Reset Data Simulasi
+  const handleResetSimulation = () => {
+    const fresh = getDefaultData();
+    setProfile(fresh.defaultProfile);
+    setIncomes(fresh.defaultIncomes);
+    setExpenses(fresh.defaultExpenses);
+    setSavings(fresh.defaultSavings);
+    setChallenges(fresh.defaultChallenges);
+    showToast('Data simulasi berhasil dikembalikan ke pengaturan awal!', 'success');
+  };
+
+  // ============================================================================
+  // DAFTAR MENU NAVIGASI
+  // ============================================================================
+
+  const navItems: { id: MenuId; label: string; shortLabel: string; icon: React.ReactNode }[] = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      shortLabel: 'Beranda',
+      icon: <LayoutDashboard className="w-5 h-5" />
+    },
+    {
+      id: 'income',
+      label: 'Uang Saku',
+      shortLabel: 'Masuk',
+      icon: <Wallet className="w-5 h-5" />
+    },
+    {
+      id: 'expense',
+      label: 'Pengeluaran',
+      shortLabel: 'Keluar',
+      icon: <ShoppingBag className="w-5 h-5" />
+    },
+    {
+      id: 'recap',
+      label: 'Rekap Keuangan',
+      shortLabel: 'Rekap',
+      icon: <FileSpreadsheet className="w-5 h-5" />
+    },
+    {
+      id: 'charts',
+      label: 'Grafik',
+      shortLabel: 'Grafik',
+      icon: <PieChartIcon className="w-5 h-5" />
+    },
+    {
+      id: 'savings',
+      label: 'Target Menabung',
+      shortLabel: 'Tabungan',
+      icon: <Target className="w-5 h-5" />
+    },
+    {
+      id: 'tips',
+      label: 'Tips Hemat',
+      shortLabel: 'Tips',
+      icon: <Lightbulb className="w-5 h-5" />
+    },
+    {
+      id: 'settings',
+      label: 'Pengaturan',
+      shortLabel: 'Akun',
+      icon: <Settings className="w-5 h-5" />
+    }
+  ];
+
+  // ============================================================================
+  // KELAS TEMA DINAMIS (TERANG / GELAP)
+  // ============================================================================
+
+  const isDark = profile.darkMode;
+  const bgMain = isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800';
+  const bgCard = isDark
+    ? 'bg-slate-900/90 border-slate-800 text-slate-100'
+    : 'bg-white border-slate-200/80 text-slate-800';
+  const textMuted = isDark ? 'text-slate-400' : 'text-slate-500';
+  const inputBg = isDark
+    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-sky-400'
+    : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-sky-500 focus:bg-white';
+
+  return (
+    <div className={`min-h-screen transition-colors duration-300 font-sans ${bgMain}`}>
+      {/* Toast Notification Banner */}
+      {toast && (
+        <div className="fixed top-4 right-4 left-4 md:left-auto md:w-96 z-50 animate-bounce">
+          <div
+            className={`flex items-start gap-3 p-4 rounded-2xl shadow-xl border backdrop-blur-md ${
+              toast.type === 'celebration'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-300'
+                : toast.type === 'error'
+                ? 'bg-red-600 text-white border-red-400'
+                : toast.type === 'warning'
+                ? 'bg-amber-500 text-white border-amber-300'
+                : 'bg-emerald-600 text-white border-emerald-400'
+            }`}
+          >
+            {toast.type === 'celebration' ? (
+              <Trophy className="w-6 h-6 shrink-0 mt-0.5" />
+            ) : toast.type === 'error' || toast.type === 'warning' ? (
+              <AlertTriangle className="w-6 h-6 shrink-0 mt-0.5" />
+            ) : (
+              <CheckCircle2 className="w-6 h-6 shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1 text-sm font-medium leading-snug">{toast.message}</div>
+            <button
+              onClick={() => setToast(null)}
+              className="opacity-80 hover:opacity-100 transition-opacity"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* LAYOUT UTAMA: SIDEBAR DESKTOP + KONTEN UTAMA */}
+      <div className="flex min-h-screen">
+        {/* SIDEBAR DESKTOP (Laptop / Layar Besar) */}
+        <aside
+          className={`hidden lg:flex lg:flex-col lg:w-72 lg:fixed lg:inset-y-0 border-r transition-colors duration-300 z-30 ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-[#0F172A] text-white border-slate-800'
+          }`}
+        >
+          {/* Logo TrackOut */}
+          <div className="p-6 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/30">
+                <Wallet className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-extrabold tracking-tight text-white flex items-center gap-1.5">
+                  Track<span className="text-sky-400">Out</span>
+                </h1>
+                <p className="text-[11px] text-sky-300/90 font-medium">
+                  Atur Uang Sakumu, Raih Impianmu!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Info Saldo Cepat di Sidebar */}
+          <div className="px-4 pt-5 pb-2">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-900/80 to-slate-800/90 border border-sky-500/20">
+              <p className="text-xs text-sky-300 font-medium">Sisa Uang Sakumu</p>
+              <p
+                className={`text-lg font-bold mt-0.5 ${
+                  financialStats.remainingBalance < 0 ? 'text-red-400' : 'text-white'
+                }`}
+              >
+                {formatRupiah(financialStats.remainingBalance)}
+              </p>
+              <div className="mt-2 pt-2 border-t border-slate-700/70 flex items-center justify-between text-[11px] text-slate-300">
+                <span>Terkumpul Tabungan:</span>
+                <span className="text-sky-400 font-semibold">
+                  {formatRupiah(financialStats.totalSaved)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Menu Navigasi Sidebar */}
+          <nav className="flex-1 px-4 py-3 space-y-1.5 overflow-y-auto">
+            {navItems.map((item) => {
+              const isActive = activeMenu === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveMenu(item.id)}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                    isActive
+                      ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/25 translate-x-1'
+                      : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  }`}
+                >
+                  <span className={isActive ? 'text-white' : 'text-sky-400'}>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Footer Profil Pelajar di Sidebar */}
+          <div className="p-4 border-t border-slate-800">
+            <div className="flex items-center justify-between bg-slate-800/60 p-3 rounded-2xl">
+              <div clas
